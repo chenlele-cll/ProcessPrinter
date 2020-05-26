@@ -1,4 +1,3 @@
 ﻿  main.cpp
-f:\代码\processprinter\processprinter\main.cpp : warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
-f:\代码\processprinter\processprinter\doublelinklist.h : warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
-  ProcessPrinter.vcxproj -> F:\代码\ProcessPrinter\Debug\ProcessPrinter.exe
+e:\大四上\课设\processprinter\doublelinklist.h : warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+  ProcessPrinter.vcxproj -> E:\大四上\课设\Debug\ProcessPrinter.exe

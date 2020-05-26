@@ -26,5 +26,11 @@
     <ClInclude Include="DoubleLinkList.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="ProcessInfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="EndProcessInfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

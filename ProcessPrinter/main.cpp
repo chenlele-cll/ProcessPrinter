@@ -1,126 +1,256 @@
+#pragma warning(disable:4996) 
 #include <iostream>
 #include <forward_list>
-#include <string>
-#include <map>  
+#include <string> 
 #include <windows.h>  
 #include <TlHelp32.h> 
 #include <time.h>
 #include <psapi.h>
 #include <algorithm>
 #include <iomanip>
+#include <sstream>
+#include <fstream>
+#include <map>
+
 #include "DoubleLinkList.h"
 #include "SingleLinkList.h"
+#include "ProcessInfo.h"
+#include "EndProcessInfo.h"
 
 using datastructure::linklist::DoubleLinkList;
 using datastructure::linklist::SingleLinkList;
 using datastructure::linklist::DoubleNode;
 using datastructure::linklist::SingleNode;
 
-/*â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”
-ç‰ˆæƒå£°æ˜ï¼šæœ¬æ–‡ä¸ºCSDNåšä¸»ã€Œé™ˆä¹ä¹happyã€çš„åŸåˆ›æ–‡ç« ï¼Œéµå¾ª CC 4.0 BY - SA ç‰ˆæƒåè®®ï¼Œè½¬è½½è¯·é™„ä¸ŠåŸæ–‡å‡ºå¤„é“¾æ¥åŠæœ¬å£°æ˜ã€‚
-åŸæ–‡é“¾æ¥ï¼šhttps ://blog.csdn.net/weixin_39139505/article/details/90295704
+/*¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª
+°æÈ¨ÉùÃ÷£º±¾ÎÄÎªCSDN²©Ö÷¡¸³ÂÀÖÀÖhappy¡¹µÄÔ­´´ÎÄÕÂ£¬×ñÑ­ CC 4.0 BY - SA °æÈ¨Ğ­Òé£¬×ªÔØÇë¸½ÉÏÔ­ÎÄ³ö´¦Á´½Ó¼°±¾ÉùÃ÷¡£
+Ô­ÎÄÁ´½Ó£ºhttps ://blog.csdn.net/weixin_39139505/article/details/90295704
 */
 
-struct ProcessInfo {
-public:
-	DWORD process_id;	//è¿›ç¨‹ id
-	std::string process_name;  //ç¨‹åºå
-	int memory_usage;	//å†…å­˜ä½¿ç”¨æƒ…å†µ
-	FILETIME creation_time;	//åˆ›å»ºæ—¶é—´
-	FILETIME exit_time;	//ç»“æŸæ—¶é—´
-
-	std::string duration;	//æŒç»­æ—¶é—´
-	std::string end_time;	//ç»“æŸæ—¶é—´
-};
-
-DoubleLinkList<ProcessInfo> GetProcesses() {
-	DoubleLinkList<ProcessInfo> data;
-
-	//PROCESSENTRY32ç»“æ„ä½“ï¼Œä¿å­˜è¿›ç¨‹å…·ä½“ä¿¡æ¯
-	PROCESSENTRY32 pe32;
-	pe32.dwSize = sizeof(pe32);
-
-	//è·å¾—ç³»ç»Ÿè¿›ç¨‹å¿«ç…§çš„å¥æŸ„
-	HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	if (hProcessSnap == INVALID_HANDLE_VALUE) {
-		std::cout << "CreateToolhelp32Snapshot Error!" << std::endl;;
-		return data;
+//È¡³ö pslist ´òÓ¡ÖĞµÄÎŞĞ§ĞÅÏ¢
+void GetRidOfInvalidMsg(std::string& pro_list) {
+	int index;
+	for (int i = 0; i < 3; i++) {
+		index = pro_list.find_first_of('\n');
+		pro_list = pro_list.substr(index + 1);
 	}
-
-	//é¦–å…ˆè·å¾—ç¬¬ä¸€ä¸ªè¿›ç¨‹
-	BOOL bResult = Process32First(hProcessSnap, &pe32);
-
-	//å¾ªç¯è·å–æ‰€æœ‰è¿›ç¨‹
-	while (bResult) {
-		ProcessInfo process;
-		process.process_id = pe32.th32ProcessID;
-		process.process_name = pe32.szExeFile;
-		data.HeadInsert(process);
-
-		bResult = Process32Next(hProcessSnap, &pe32);
-	}
-
-	CloseHandle(hProcessSnap);
-	return data;
 }
 
-
-void GetMemoryInfo(DWORD processID, DoubleNode<ProcessInfo> *process)
-{
-	HANDLE hProcess;
-	PROCESS_MEMORY_COUNTERS pmc;
-
-	// Print information about the memory usage of the process.
-
-	hProcess = OpenProcess(PROCESS_QUERY_INFORMATION |
-		PROCESS_VM_READ,
-		FALSE, processID);
-	if (NULL == hProcess)
-		return;
-
-	FILETIME creation_time, exit_time,kernel_time,user_time;
-	GetProcessTimes(hProcess, &creation_time, &exit_time,&kernel_time,&user_time);
-	process->val_.creation_time = creation_time;
-	process->val_.exit_time = exit_time;
-
-	if (GetProcessMemoryInfo(hProcess, &pmc, sizeof(pmc))) {
-		process->val_.memory_usage = pmc.WorkingSetSize/1024;
+//Ñ¹Ëõ¿Õ¸ñ
+std::string CompressBlank(std::string pro_list) {
+	std::string c_pro_list;
+	bool flag = false;
+	for (auto c : pro_list) {
+		if (c != ' ') {
+			c_pro_list += c;
+			flag = false;
+		}
+		else if (c == ' '&&flag == false) {
+			c_pro_list += c;
+			flag = true;
+		}
+		else if (c == ' '&&flag == true) continue;
 	}
-
-	CloseHandle(hProcess);
+	return c_pro_list;
 }
 
-void PrintProcessInfo(DoubleLinkList<ProcessInfo>& process_list) {
-	std::cout << " è¿›ç¨‹ ID" << "     å·¥ä½œè®¾ç½®å†…å­˜(/KB)" << "      è¿›ç¨‹å       " << std::endl;
-	auto process = process_list.GetHead()->next_;
+//Í¨¹ı pslist »ñÈ¡È«²¿½ø³ÌĞÅÏ¢
+std::string GetProcessMsgList() {
+	const std::string& path = R"(F:\msg.txt)";
+	std::string command = R"(F:\pslist>)" + path + "&&exit";
+	system(command.data());
+	std::ifstream msg(path);
+	std::stringstream buffer;
+	buffer << msg.rdbuf();
+	std::string pro_list(buffer.str());
+	GetRidOfInvalidMsg(pro_list);
+	pro_list = CompressBlank(pro_list);
+	return pro_list;
+}
+
+//»ñÈ¡Ò»Ìõ½ø³ÌµÄĞÅÏ¢
+std::string GetOneProcessMsg(std::string& pro_list) {
+	int index = pro_list.find_first_of('\n');
+	if (index != -1) {
+		std::string process = pro_list.substr(0, index + 1);
+		pro_list = pro_list.substr(index + 1);
+		return process;
+	}
+	else {
+		std::string tmp = pro_list;
+		pro_list = "";
+		return tmp;
+	}
+}
+
+//ÌáÈ¡½ø³ÌµÄĞÅÏ¢´æ´¢µ½½á¹¹Ìå
+ProcessInfo ExtractInfo(std::string pro) {
+	ProcessInfo process;
+	int index = pro.find_first_of(' ');
+	while ((pro[index+1] <= 'z'&&pro[index+1] >= 'a') || (pro[index+1] <= 'Z'&&pro[index+1] >= 'A')||pro[index+1]==' ')
+		index++;
+	process.process_name = pro.substr(0, index);
+	pro = pro.substr(index + 1);
+
+	index = pro.find_first_of(' ');
+	process.process_id = pro.substr(0, index);
+	pro = pro.substr(index + 1);
+
+	for (int i = 0; i < 3; i++) {
+		index = pro.find_first_of(' ');
+		pro = pro.substr(index + 1);
+	}
+
+	index = pro.find_first_of(' ');
+	process.memory_usage = std::atoi(pro.substr(0, index).c_str());
+	pro = pro.substr(index + 1);
+
+	index = pro.find_first_of(' ');
+	pro = pro.substr(index + 1);
+	pro.pop_back();
+	process.elapsed_time = pro;
+
+	return process;
+}
+
+//´òÓ¡µ±Ç°È«²¿½ø³ÌÏêÇé
+void PrintCurProcessInfo(DoubleLinkList<ProcessInfo>& process_list) {
+	
+	auto process = process_list.GetHead()->prev_;
 	int len = process_list.GetLength();
-	while(len) {
-		std::cout << "  " << std::setw(15) << std::setiosflags(std::ios::left) << process->val_.process_id;
-		std::cout << std::setw(10) << process->val_.memory_usage << "\t"  << process->val_.process_name <<  "\t" << process->val_.creation_time.dwHighDateTime<<std::endl;
+	std::cout << "----------------------µ±Ç°½ø³ÌÏêÇé----------------------------" << std::endl;
+	std::cout << "--------------------------------------------------------------" << std::endl;
+	std::cout << std::setw(10) << std::setiosflags(std::ios::right) << "[pid]" << std::resetiosflags(std::ios::right);
+	std::cout << std::setw(14) << std::setiosflags(std::ios::right) << "[³ÖĞøÊ±¼ä]"<< std::resetiosflags(std::ios::right);
+	std::cout << std::setw(15) << std::setiosflags(std::ios::right) << "[¹¤×÷ÄÚ´æ/KB]" << std::resetiosflags(std::ios::right);
+	std::cout << "    ";
+	std::cout << std::setw(19) << std::setiosflags(std::ios::left) << "[½ø³ÌÃû]" << std::resetiosflags(std::ios::left);
+	std::cout << std::endl;
+	std::cout << "--------------------------------------------------------------" << std::endl;
+	while (len) {
+		std::string memory_usage = std::to_string(process->val_.memory_usage)  + "     ";
+		std::cout << std::setw(10) << std::setiosflags(std::ios::right) << process->val_.process_id << std::resetiosflags(std::ios::right);
+		std::cout << std::setw(14) << std::setiosflags(std::ios::right)<<process->val_.elapsed_time << std::resetiosflags(std::ios::right);
+		std::cout <<std::setw(15) << std::setiosflags(std::ios::right) << memory_usage << std::resetiosflags(std::ios::right);
+		std::cout << "    ";
+		std::cout << std::setw(19) << std::setiosflags(std::ios::left) << process->val_.process_name << std::resetiosflags(std::ios::left);
+		std::cout << std::endl;
 		len--;
-		process = process->next_;
+		process = process->prev_;
 	}
+	std::cout << "--------------------------------------------------------------" << std::endl;
+}
+
+//´òÓ¡ÒÑ½áÊø½ø³ÌÏêÇé
+void PrintEndProcessInfo(SingleLinkList<EndProcessInfo>& process_list) {
+	std::cout << "----------------------ÒÑ½áÊø½ø³ÌÏêÇé--------------------------" << std::endl;
+	std::cout << "--------------------------------------------------------------" << std::endl;
+	std::cout << std::setw(10) << std::setiosflags(std::ios::right) << "[pid]" << std::resetiosflags(std::ios::right);
+	std::cout << std::setw(14) << std::setiosflags(std::ios::right) << "[³ÖĞøÊ±¼ä]" << std::resetiosflags(std::ios::right);
+	std::cout << std::setw(14) << std::setiosflags(std::ios::right) << "[½áÊøÊ±¼ä]" << std::resetiosflags(std::ios::right);
+	std::cout << "    ";
+	std::cout << std::setw(14) << std::setiosflags(std::ios::left) << "[½ø³ÌÃû]" << std::resetiosflags(std::ios::left);
+	std::cout << std::endl;
+	std::cout << "--------------------------------------------------------------" << std::endl;
+	auto it = process_list.Front();
+	while (it) {
+		std::cout << std::setw(10) << std::setiosflags(std::ios::right) << it->val_.process_id << std::resetiosflags(std::ios::right);
+		std::cout << std::setw(14) << std::setiosflags(std::ios::right) << it->val_.elapsed_time << std::resetiosflags(std::ios::right);
+		std::cout << std::setw(14) << std::setiosflags(std::ios::right) << it->val_.end_time << std::resetiosflags(std::ios::right);
+		std::cout << "    ";
+		std::cout << std::setw(19) << std::setiosflags(std::ios::left) << it->val_.process_name << std::resetiosflags(std::ios::left);
+		it = it->next_;
+		std::cout << std::endl;
+	}
+	std::cout << "--------------------------------------------------------------" << std::endl;
+
+}
+
+std::string GetCurrentSystemTime() {
+	struct tm *local;
+	time_t nowtime = time(NULL); //»ñÈ¡ÈÕÀúÊ±¼ä
+
+	local = localtime(&nowtime);
+	std::string time = asctime(local);
+	for (int i = 0; i <= 5; i++) time.pop_back();
+	for (int i = 0; i < 3; i++) {
+		int index = time.find_first_of(' ');
+		time = time.substr(index + 1);
+	}
+	return time;
 }
 
 int main() {
-	//TODO å†™å¯¹åº”çš„å¤åˆ¶æ„é€ å‡½æ•°
-	auto process_list = GetProcesses();
-	std::cout << process_list.GetLength() << std::endl;
-	int len = process_list.GetLength();
-	auto process = process_list.GetHead()->next_->next_;
-	for (int i = 0; i < len; i++) {
-		std::cout << process->val_.process_id << std::endl;
-		process = process->next_;
-	}
-	while(len) {
-		GetMemoryInfo(process->val_.process_id, process);
-		process = process->next_;
+	DoubleLinkList<ProcessInfo> pre_process_list;	//´æ´¢ÉÏÒ»ÃëµÄ½ø³ÌÁĞ±í  
+	DoubleLinkList<ProcessInfo> cur_process_list;	//´æ´¢µ±Ç°µÄ½ø³ÌÁĞ±í
+	SingleLinkList<EndProcessInfo> end_process_list;	//´æ´¢½áÊø½ø³ÌÁĞ±í
+	std::map<std::string, DoubleNode<ProcessInfo>*> cur_pro_map;	//´æ´¢ pid µ½½ø³Ì½áµãµÄÓ³Éä
+	int len = 50;	//¶¨ÒåÑ­»·´ÎÊı
+	while (len) {
+
+		//»ñÈ¡½ø³ÌĞÅÏ¢µ½Ë«Á´±í
+		std::string process_msg_list = GetProcessMsgList();
+		while (!process_msg_list.empty()) {
+			cur_process_list.SelectInsert(ExtractInfo(GetOneProcessMsg(process_msg_list)));
+		}
+
+		//Ìí¼ÓÓ³Éä¹ØÏµ
+		auto it = cur_process_list.Front();
+		while (it != cur_process_list.GetHead()) {
+			cur_pro_map.insert(std::pair<std::string, DoubleNode<ProcessInfo>*>(it->val_.process_id, it));
+			it = it->next_;
+		}
+
+		/*
+		if (end_process_list.GetLength() != 0) {
+			auto end_it = end_process_list.Front();
+			while (end_it) {
+				if (cur_pro_map.count(end_it->val_.process_id)) {
+					end_it = end_process_list.Delete(end_it);
+				}
+				end_it = end_it->next_;
+			}
+		}*/
+
+		//±È½ÏÁ´±íÔªËØÅĞ¶ÏÊÇ·ñ´æÔÚÒÑ½áÊø½ø³Ì
+		std::string current_time = GetCurrentSystemTime();
+		if (pre_process_list.GetLength() != 0) {
+			auto pre_it = pre_process_list.Front();
+			
+			while (pre_it!= pre_process_list.GetHead()) {
+				if (!cur_pro_map.count(pre_it->val_.process_id)) {
+					if (pre_it->val_.process_name!="pslist"&&pre_it->val_.process_name != "cmd") {
+						EndProcessInfo end_pro;
+						end_pro.process_id = pre_it->val_.process_id;
+						end_pro.process_name = pre_it->val_.process_name;
+						end_pro.elapsed_time = pre_it->val_.elapsed_time;
+						end_pro.end_time = current_time;
+						end_process_list.TopInsert(end_pro);
+					}
+				}
+				pre_it = pre_it->next_;
+			}
+		}
+
+		//Çå³ıÖÕ¶ËÊı¾İ
+		system("cls");
+
+		//´òÓ¡
+		PrintCurProcessInfo(cur_process_list);
+		std::cout << std::endl;
+		PrintEndProcessInfo(end_process_list);
+
+		//³õÊ¼»¯×´Ì¬
+		cur_pro_map.clear();
+		pre_process_list = cur_process_list;
+		cur_process_list.Clear();
 		len--;
+
+		//ĞİÃß
+		Sleep(1000);
 	}
-	while (process_list.Back()->val_.memory_usage < 0){
-		process_list.PopBack();
-	}
-	PrintProcessInfo(process_list);
+	
+
 	system("pause");
 	return 0;
 }
